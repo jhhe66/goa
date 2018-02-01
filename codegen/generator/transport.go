@@ -5,6 +5,8 @@ import (
 
 	"goa.design/goa/codegen"
 	"goa.design/goa/eval"
+	grpccodegen "goa.design/goa/grpc/codegen"
+	grpcdesign "goa.design/goa/grpc/design"
 	httpcodegen "goa.design/goa/http/codegen"
 	httpdesign "goa.design/goa/http/design"
 )
@@ -15,14 +17,18 @@ import (
 func Transport(genpkg string, roots []eval.Root) ([]*codegen.File, error) {
 	var files []*codegen.File
 	for _, root := range roots {
-		if r, ok := root.(*httpdesign.RootExpr); ok {
-			files = httpcodegen.ServerFiles(genpkg, r)
+		switch r := root.(type) {
+		case *httpdesign.RootExpr:
+			files = append(files, httpcodegen.ServerFiles(genpkg, r)...)
 			files = append(files, httpcodegen.ClientFiles(genpkg, r)...)
 			files = append(files, httpcodegen.ServerTypeFiles(genpkg, r)...)
 			files = append(files, httpcodegen.ClientTypeFiles(genpkg, r)...)
 			files = append(files, httpcodegen.PathFiles(r)...)
 			files = append(files, httpcodegen.ClientCLIFiles(genpkg, r)...)
-			break
+		case *grpcdesign.RootExpr:
+			grpccodegen.ProtoFiles(genpkg, r)
+			files = append(files, grpccodegen.ServerFiles(genpkg, r)...)
+			files = append(files, grpccodegen.ServerTypeFiles(genpkg, r)...)
 		}
 	}
 	if len(files) == 0 {

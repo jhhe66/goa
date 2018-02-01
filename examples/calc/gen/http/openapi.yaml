@@ -10,6 +10,7 @@ paths:
       tags:
       - calc
       summary: add calc
+      description: Adds the operands
       operationId: calc#add
       parameters:
       - name: a

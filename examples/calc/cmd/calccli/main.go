@@ -1,116 +1,39 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"flag"
-	"fmt"
-	"net/http"
-	"net/url"
+	"log"
 	"os"
-	"strings"
-	"time"
+	"strconv"
 
-	"goa.design/goa/examples/calc/gen/http/cli"
-	goahttp "goa.design/goa/http"
+	calcpb "goa.design/goa/examples/calc/gen/grpc/calc"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+)
+
+const (
+	address = "localhost:8081"
 )
 
 func main() {
-	var (
-		addr    = flag.String("url", "http://localhost:8080", "`URL` to service host")
-		verbose = flag.Bool("verbose", false, "Print request and response details")
-		v       = flag.Bool("v", false, "Print request and response details")
-		timeout = flag.Int("timeout", 30, "Maximum number of `seconds` to wait for response")
-	)
-	flag.Usage = usage
-	flag.Parse()
-
-	var (
-		scheme string
-		host   string
-		debug  bool
-	)
-	{
-		u, err := url.Parse(*addr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "invalid URL %#v: %s", *addr, err)
-			os.Exit(1)
-		}
-		scheme = u.Scheme
-		host = u.Host
-		if scheme == "" {
-			scheme = "http"
-		}
-		debug = *verbose || *v
-	}
-
-	var (
-		doer goahttp.Doer
-	)
-	{
-		doer = &http.Client{Timeout: time.Duration(*timeout) * time.Second}
-		if debug {
-			doer = goahttp.NewDebugDoer(doer)
-		}
-	}
-
-	endpoint, payload, err := cli.ParseEndpoint(
-		scheme,
-		host,
-		doer,
-		goahttp.RequestEncoder,
-		goahttp.ResponseDecoder,
-		debug,
-	)
+	// Set up a connection to the server.
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
-		if err == flag.ErrHelp {
-			os.Exit(0)
-		}
-		fmt.Fprintln(os.Stderr, err.Error())
-		fmt.Fprintln(os.Stderr, "run '"+os.Args[0]+" --help' for detailed usage.")
-		os.Exit(1)
+		log.Fatalf("did not connect: %v", err)
 	}
+	defer conn.Close()
+	c := calcpb.NewCalcClient(conn)
 
-	data, err := endpoint(context.Background(), payload)
-
-	if debug {
-		doer.(goahttp.DebugDoer).Fprint(os.Stderr)
+	var aStr, bStr string
+	var a, b int64
+	if len(os.Args) > 1 {
+		aStr = os.Args[1]
+		bStr = os.Args[2]
 	}
-
+	a, _ = strconv.ParseInt(aStr, 10, 32)
+	b, _ = strconv.ParseInt(bStr, 10, 32)
+	r, err := c.Add(context.Background(), &calcpb.AddRequest{A: int32(a), B: int32(b)})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
+		log.Fatalf("could not greet: %v", err)
 	}
-
-	if data != nil && !debug {
-		m, _ := json.MarshalIndent(data, "", "    ")
-		fmt.Println(string(m))
-	}
-}
-
-func usage() {
-	fmt.Fprintf(os.Stderr, `%s is a command line client for the calc API.
-
-Usage:
-    %s [-url URL][-timeout SECONDS][-verbose|-v] SERVICE ENDPOINT [flags]
-
-    -url URL:    specify service URL (http://localhost:8080)
-    -timeout:    maximum number of seconds to wait for response (30)
-    -verbose|-v: print request and response details (false)
-
-Commands:
-%s
-Additional help:
-    %s SERVICE [ENDPOINT] --help
-
-Example:
-%s
-`, os.Args[0], os.Args[0], indent(cli.UsageCommands()), os.Args[0], indent(cli.UsageExamples()))
-}
-
-func indent(s string) string {
-	if s == "" {
-		return ""
-	}
-	return "    " + strings.Replace(s, "\n", "\n    ", -1)
+	log.Printf("Added: %d", r.Field)
 }

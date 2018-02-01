@@ -14,7 +14,7 @@ import (
 
 // The calc service performs operations on numbers
 type Service interface {
-	// Add implements add.
+	// Adds the operands
 	Add(context.Context, *AddPayload) (res int, err error)
 }
 

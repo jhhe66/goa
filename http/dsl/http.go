@@ -663,15 +663,16 @@ func Body(args ...interface{}) {
 			eval.ReportError("%s type must be an object with an attribute with name %#v, got %T", kind, a, ref.Type)
 			return
 		}
-		attr = design.DupAtt(obj.Attribute(a))
+		attr = obj.Attribute(a)
+		if attr == nil {
+			eval.ReportError("%s type does not have an attribute named %#v", kind, a)
+			return
+		}
+		attr = design.DupAtt(attr)
 		if attr.Metadata == nil {
 			attr.Metadata = design.MetadataExpr{"origin:attribute": []string{a}}
 		} else {
 			attr.Metadata["origin:attribute"] = []string{a}
-		}
-		if attr == nil {
-			eval.ReportError("%s type does not have an attribute named %#v", kind, a)
-			return
 		}
 	case design.UserType:
 		attr = &design.AttributeExpr{Type: a}

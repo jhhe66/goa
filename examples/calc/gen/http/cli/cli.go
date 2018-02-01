@@ -135,7 +135,7 @@ Usage:
     %s [globalflags] calc COMMAND [flags]
 
 COMMAND:
-    add: Add implements add.
+    add: Adds the operands
 
 Additional help:
     %s calc COMMAND --help
@@ -144,7 +144,7 @@ Additional help:
 func calcAddUsage() {
 	fmt.Fprintf(os.Stderr, `%s [flags] calc add -a INT -b INT
 
-Add implements add.
+Adds the operands
     -a INT: Left operand
     -b INT: Right operand
 

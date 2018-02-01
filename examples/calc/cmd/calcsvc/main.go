@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,18 +13,22 @@ import (
 
 	calc "goa.design/goa/examples/calc"
 	calcsvc "goa.design/goa/examples/calc/gen/calc"
+	calcpb "goa.design/goa/examples/calc/gen/grpc/calc"
+	calcsvcgrpcsvr "goa.design/goa/examples/calc/gen/grpc/calc/server"
 	calcsvcsvr "goa.design/goa/examples/calc/gen/http/calc/server"
 	openapisvr "goa.design/goa/examples/calc/gen/http/openapi/server"
 	goahttp "goa.design/goa/http"
 	"goa.design/goa/http/middleware"
+	"google.golang.org/grpc"
 )
 
 func main() {
 	// Define command line flags, add any other flag required to configure
 	// the service.
 	var (
-		addr = flag.String("listen", ":8080", "HTTP listen `address`")
-		dbg  = flag.Bool("debug", false, "Log request and response bodies")
+		addr     = flag.String("listen", ":8080", "HTTP listen `address`")
+		grpcaddr = flag.String("grpc", ":8081", "GRPC listen `address`")
+		dbg      = flag.Bool("debug", false, "Log request and response bodies")
 	)
 	flag.Parse()
 
@@ -77,13 +82,15 @@ func main() {
 	// the service input and output data structures to HTTP requests and
 	// responses.
 	var (
-		openapiServer *openapisvr.Server
-		calcsvcServer *calcsvcsvr.Server
+		openapiServer     *openapisvr.Server
+		calcsvcServer     *calcsvcsvr.Server
+		calcsvcgrpcServer *calcsvcgrpcsvr.Server
 	)
 	{
 		eh := ErrorHandler(logger)
 		openapiServer = openapisvr.New(nil, mux, dec, enc, eh)
 		calcsvcServer = calcsvcsvr.New(calcsvcEndpoints, mux, dec, enc, eh)
+		calcsvcgrpcServer = calcsvcgrpcsvr.New(calcsvcEndpoints)
 	}
 
 	// Configure the mux.
@@ -124,6 +131,19 @@ func main() {
 		}
 		logger.Printf("listening on %s", *addr)
 		errc <- srv.ListenAndServe()
+	}()
+
+	// Start GRPC server using default configuration.
+	grpcSrvr := grpc.NewServer()
+	calcpb.RegisterCalcServer(grpcSrvr, calcsvcgrpcServer)
+	go func() {
+		lis, err := net.Listen("tcp", *grpcaddr)
+		if err != nil {
+			logger.Fatalf("failed to listen: %v", err)
+			errc <- err
+		}
+		logger.Printf("[INFO] GRPC listening on %s", *grpcaddr)
+		errc <- grpcSrvr.Serve(lis)
 	}()
 
 	// Wait for signal.

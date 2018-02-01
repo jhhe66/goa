@@ -29,29 +29,18 @@ func NewMappedAttributeExpr(att *AttributeExpr) *MappedAttributeExpr {
 	var (
 		nameMap    = make(map[string]string)
 		reverseMap = make(map[string]string)
-		validation *ValidationExpr
 	)
-	if att.Validation != nil {
-		validation = att.Validation.Dup()
-	} else if ut, ok := att.Type.(UserType); ok {
-		if val := ut.Attribute().Validation; val != nil {
-			validation = val.Dup()
-		}
-	}
 	ma := &MappedAttributeExpr{
-		AttributeExpr: &AttributeExpr{
-			Type:         Dup(att.Type),
-			References:   att.References,
-			Bases:        att.Bases,
-			Description:  att.Description,
-			Docs:         att.Docs,
-			Metadata:     att.Metadata,
-			DefaultValue: att.DefaultValue,
-			UserExamples: att.UserExamples,
-			Validation:   validation,
-		},
-		nameMap:    nameMap,
-		reverseMap: reverseMap,
+		AttributeExpr: DupAtt(att),
+		nameMap:       nameMap,
+		reverseMap:    reverseMap,
+	}
+	if att := ma.AttributeExpr; att.Validation == nil {
+		if ut, ok := att.Type.(UserType); ok {
+			if val := ut.Attribute().Validation; val != nil {
+				att.Validation = val.Dup()
+			}
+		}
 	}
 	ma.Remap()
 	return ma

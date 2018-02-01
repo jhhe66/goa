@@ -1,7 +1,9 @@
 package design
 
-import . "goa.design/goa/http/design"
+import . "goa.design/goa/design"
+import httpdesign "goa.design/goa/http/design"
 import . "goa.design/goa/http/dsl"
+import grpcdsl "goa.design/goa/grpc/dsl"
 
 // API describes the global properties of the API server.
 var _ = API("calc", func() {
@@ -9,17 +11,26 @@ var _ = API("calc", func() {
 	Description("HTTP service for adding numbers, a goa teaser")
 })
 
+var RT = Type("FooType", func() {
+	Attribute("c", Int, "Sum", func() {
+		Metadata("rpc:tag", "1")
+	})
+})
+
 // Service describes a service
 var _ = Service("calc", func() {
 	Description("The calc service performs operations on numbers")
 	// Method describes a service method (endpoint)
 	Method("add", func() {
+		Description("Adds the operands")
 		// Payload describes the method payload
 		// Here the payload is an object that consists of two fields
 		Payload(func() {
 			// Attribute describes an object field
-			Attribute("a", Int, "Left operand")
-			Attribute("b", Int, "Right operand")
+			Attribute("a", Int, "Left operand", func() {
+				Metadata("rpc:tag", "1")
+			})
+			Field(2, "b", Int, "Right operand")
 			Required("a", "b")
 		})
 		// Result describes the method result
@@ -32,8 +43,10 @@ var _ = Service("calc", func() {
 			GET("/add/{a}/{b}")
 			// Responses use a "200 OK" HTTP status
 			// The result is encoded in the response body
-			Response(StatusOK)
+			Response(httpdesign.StatusOK)
 		})
+
+		grpcdsl.GRPC(func() {})
 	})
 })
 
